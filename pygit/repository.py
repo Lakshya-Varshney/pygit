@@ -142,6 +142,27 @@ class Repository:
         config = self.get_config()
         return config.get("user", "name"), config.get("user", "email")
 
+    def get_author_string(self):
+        """Get author string from config, falling back to placeholder."""
+        try:
+            name, email = self.get_user()
+            return f"{name} <{email}>"
+        except Exception:
+            return "Unknown <unknown@example.com>"
+
+    def set_config_value(self, key, value):
+        """Set a config value. Key format: section.option (e.g. user.name)."""
+        config = self.get_config()
+        parts = key.split(".", 1)
+        if len(parts) != 2:
+            raise ValueError(f"Key must be in section.option format: {key}")
+        section, option = parts
+        if not config.has_section(section):
+            config.add_section(section)
+        config.set(section, option, value)
+        with open(self.git_dir / "config", "w") as f:
+            config.write(f)
+
     def add_remote(self, name, address):
         """Add a remote to config."""
         config = self.get_config()
@@ -234,7 +255,7 @@ class Repository:
         # Root tree
         root_entries = list(tree_map.get("", []))
         for child_dir, child_sha in dir_shas.items():
-            if "/" not in child_dir:  # Direct child
+            if child_dir and "/" not in child_dir:  # Direct child, skip root
                 root_entries.append(("40000", child_dir, child_sha))
 
         root_tree_data = serialize_tree(root_entries)

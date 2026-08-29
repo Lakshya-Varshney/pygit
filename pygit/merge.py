@@ -312,13 +312,7 @@ def merge_branch(repo, branch_name):
         sys.exit(1)
 
     # Create merge commit
-    config = repo.get_config()
-    try:
-        name = config.get("user", "name")
-        email = config.get("user", "email")
-        author = f"{name} <{email}>"
-    except Exception:
-        author = "Unknown <unknown@example.com>"
+    author = repo.get_author_string()
 
     import time
     epoch = int(time.time())
@@ -377,13 +371,7 @@ def cherry_pick(repo, commit_sha):
         raise ValueError(f"Conflicts in: {', '.join(conflicts)}")
 
     # Create new commit
-    config = repo.get_config()
-    try:
-        name = config.get("user", "name")
-        email = config.get("user", "email")
-        author = f"{name} <{email}>"
-    except Exception:
-        author = "Unknown <unknown@example.com>"
+    author = repo.get_author_string()
 
     import time
     epoch = int(time.time())
@@ -472,13 +460,7 @@ def rebase(repo, target_branch):
             raise ValueError(f"Conflict replaying {old_sha[:7]}: {', '.join(conflicts)}")
 
         # Create new commit
-        config = repo.get_config()
-        try:
-            name = config.get("user", "name")
-            email = config.get("user", "email")
-            author = f"{name} <{email}>"
-        except Exception:
-            author = "Unknown <unknown@example.com>"
+        author = repo.get_author_string()
 
         import time
         epoch = int(time.time())
@@ -527,13 +509,7 @@ def revert(repo, commit_sha):
         revert_tree = hash_object(serialize_tree([]), "tree", repo.root)
 
     # Create revert commit
-    config = repo.get_config()
-    try:
-        name = config.get("user", "name")
-        email = config.get("user", "email")
-        author = f"{name} <{email}>"
-    except Exception:
-        author = "Unknown <unknown@example.com>"
+    author = repo.get_author_string()
 
     import time
     epoch = int(time.time())
