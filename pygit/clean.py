@@ -35,25 +35,54 @@ def _get_head_tree_paths(repo):
     return head_paths
 
 
-def get_untracked_files(repo, include_ignored=False):
+def _dir_has_tracked_files(dir_path, tracked):
+    """Check if any file at any depth inside dir_path is tracked."""
+    for root, dirs, filenames in os.walk(dir_path):
+        dirs[:] = [d for d in dirs if d != ".pygit"]
+        for fname in filenames:
+            if fname.startswith(".pygit"):
+                continue
+            rel = str(Path(root).joinpath(fname).relative_to(dir_path.parent)).replace("\\", "/")
+            if rel in tracked:
+                return True
+    return False
+
+
+def get_untracked_files(repo, include_ignored=False, include_dirs=False):
     """Return list of untracked file paths (relative to repo root).
 
-    A file is untracked if it's not in the index AND not in HEAD's tree.
-    Ignored files are excluded unless include_ignored=True.
-    .pygit/ is always excluded.
+    When include_dirs=False (default): entirely-untracked directories are
+    treated as atomic units — their contents are NOT listed individually.
+    Only files in mixed directories (containing both tracked and untracked)
+    are listed by path.
+
+    When include_dirs=True: entirely-untracked directories appear as single
+    directory entries; files inside mixed directories also appear individually.
     """
     index_paths = _get_index_paths(repo)
     head_paths = _get_head_tree_paths(repo)
     tracked = index_paths | head_paths
 
     patterns = load_ignore(repo.root) if not include_ignored else []
-    untracked = []
+    result = []
 
     for root, dirs, filenames in os.walk(repo.root):
-        # Skip .pygit directory entirely
         dirs[:] = [d for d in dirs if d != ".pygit"]
 
         root_path = Path(root)
+        rel_dir = str(root_path.relative_to(repo.root)).replace("\\", "/")
+
+        # Check if this directory is entirely untracked (no tracked files at any depth)
+        if rel_dir != ".":
+            has_tracked = _dir_has_tracked_files(root_path, tracked)
+            if not has_tracked:
+                if not include_ignored and is_ignored(rel_dir + "/", patterns):
+                    continue
+                if include_dirs:
+                    result.append((rel_dir, True))
+                dirs.clear()
+                continue
+
         for fname in filenames:
             if fname.startswith(".pygit"):
                 continue
@@ -66,50 +95,10 @@ def get_untracked_files(repo, include_ignored=False):
             if not include_ignored and is_ignored(rel, patterns):
                 continue
 
-            untracked.append(rel)
+            result.append((rel, False))
 
-    return sorted(untracked)
+    return sorted(result)
 
-
-def _get_untracked_dirs(repo, include_ignored=False):
-    """Return list of untracked directory paths (relative to repo root).
-
-    A directory is untracked if none of its files are in the index or HEAD tree.
-    .pygit/ is always excluded.
-    """
-    index_paths = _get_index_paths(repo)
-    head_paths = _get_head_tree_paths(repo)
-    tracked = index_paths | head_paths
-
-    patterns = load_ignore(repo.root) if not include_ignored else []
-    untracked_dirs = set()
-
-    for root, dirs, filenames in os.walk(repo.root):
-        dirs[:] = [d for d in dirs if d != ".pygit"]
-
-        root_path = Path(root)
-        rel_dir = str(root_path.relative_to(repo.root)).replace("\\", "/")
-        if rel_dir == ".":
-            continue
-
-        # Check if any file in this directory is tracked
-        has_tracked = False
-        for fname in filenames:
-            if fname.startswith(".pygit"):
-                continue
-            full = root_path / fname
-            rel = str(full.relative_to(repo.root)).replace("\\", "/")
-            if rel in tracked:
-                has_tracked = True
-                break
-
-        if not has_tracked:
-            # Check if directory itself is ignored
-            if not include_ignored and is_ignored(rel_dir + "/", patterns):
-                continue
-            untracked_dirs.add(rel_dir)
-
-    return sorted(untracked_dirs)
 
 
 def get_clean_targets(repo, include_ignored=False, include_dirs=False):
@@ -123,13 +112,7 @@ def get_clean_targets(repo, include_ignored=False, include_dirs=False):
     Returns:
         List of (relative_path, is_directory) tuples
     """
-    targets = []
-    for f in get_untracked_files(repo, include_ignored):
-        targets.append((f, False))
-    if include_dirs:
-        for d in _get_untracked_dirs(repo, include_ignored):
-            targets.append((d, True))
-    return targets
+    return get_untracked_files(repo, include_ignored, include_dirs)
 
 
 def clean_repo(repo, dry_run=False, include_ignored=False, include_dirs=False):

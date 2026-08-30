@@ -3,7 +3,7 @@
 A real, content-addressed version control system in pure Python with **zero dependencies**.
 
 ```
-pygit.pyz  ~ 267 KB  |  9 modules  |  3,491 lines  |  80 tests  |  26 commands  |  Python 3.13+
+pygit.pyz  ~ 267 KB  |  13 modules  |  3,968 lines  |  132 tests  |  27 commands  |  Python 3.13+
 ```
 
 ## What is this?
@@ -43,11 +43,11 @@ python -m pygit clone localhost:8798 ./my-repo-clone
 | `pygit init` | Create an empty repository |
 | `pygit add <path>...` | Add files to the staging area (recurses into directories, respects `.pygitignore`) |
 | `pygit commit -m "<msg>"` | Record changes to the repository; `--amend` to amend the last commit |
-| `pygit log` | Show commit history; `--oneline` for compact view |
-| `pygit show <sha>` | Show commit metadata and diff for a specific commit (accepts short sha prefix, 4+ chars) |
-| `pygit status` | Show working tree status |
-| `pygit diff [<path>]` | Show changes between commits, working tree, and index |
-| `pygit branch [<name>]` | List, create, or delete branches; `-d` to delete merged, `-D` to force delete |
+| `pygit log [-n <count>] [<path>]` | Show commit history; `--oneline` for compact; `-n` limits count; `<path>` filters to commits that changed the file |
+| `pygit show <sha>` | Show commit metadata and diff (accepts short sha prefix, `--color`) |
+| `pygit status` | Show working tree status (`--color`) |
+| `pygit diff [<ref1> [<ref2>]]` | Diff working tree vs index, or two commits (`--staged`, `--color`); commit refs accept short shas or branch names |
+| `pygit branch [<name>]` | List, create, or delete branches; `-d`/`-D` to delete; `--color` |
 | `pygit checkout <target>` | Switch branches or restore files; `-b`/`-B` to create/reset branch; `-- <path>` to restore files; short sha prefix for detached HEAD |
 | `pygit switch <branch>` | Switch to a branch; `-c`/`-C` to create/reset branch |
 | `pygit merge <branch>` | Merge a branch (fast-forward or three-way) |
@@ -57,11 +57,7 @@ python -m pygit clone localhost:8798 ./my-repo-clone
 | `pygit cherry-pick <sha>` | Apply a commit's changes (accepts short sha prefix) |
 | `pygit rebase <branch>` | Rebase onto another branch |
 | `pygit revert <sha>` | Revert a commit (accepts short sha prefix) |
-| `pygit reset [--soft\|--mixed\|--hard] <commit>` | Reset HEAD to a commit |
-| `pygit stash [push\|pop\|list]` | Save/restore working state |
-| `pygit cherry-pick <sha>` | Apply a commit's changes |
-| `pygit rebase <branch>` | Rebase onto another branch |
-| `pygit revert <sha>` | Revert a commit |
+| `pygit clean [-n\|-f] [-d] [-x]` | Remove untracked files; `-n` dry run, `-f` force, `-d` include dirs, `-x` include ignored |
 | `pygit reflog` | Show HEAD movement history |
 | `pygit blame <path>` | Show line-by-line attribution |
 | `pygit gc` | Garbage collection and packfiles |

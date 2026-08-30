@@ -63,8 +63,9 @@ class TestClean(unittest.TestCase):
         untracked.write_text("world")
 
         result = get_untracked_files(self.repo)
-        self.assertIn("untracked.txt", result)
-        self.assertNotIn("tracked.txt", result)
+        paths = [p for p, _ in result]
+        self.assertIn("untracked.txt", paths)
+        self.assertNotIn("tracked.txt", paths)
 
     def test_ignored_files_excluded_by_default(self):
         """Files matching .pygitignore are excluded."""
@@ -75,7 +76,8 @@ class TestClean(unittest.TestCase):
         log_file.write_text("log content")
 
         result = get_untracked_files(self.repo)
-        self.assertNotIn("debug.log", result)
+        paths = [p for p, _ in result]
+        self.assertNotIn("debug.log", paths)
         self.assertEqual(result, [])
 
     def test_ignored_files_included_with_flag(self):
@@ -87,7 +89,8 @@ class TestClean(unittest.TestCase):
         log_file.write_text("log content")
 
         result = get_untracked_files(self.repo, include_ignored=True)
-        self.assertIn("debug.log", result)
+        paths = [p for p, _ in result]
+        self.assertIn("debug.log", paths)
 
     def test_pygit_dir_excluded(self):
         """Nothing under .pygit/ is ever returned."""
@@ -95,7 +98,7 @@ class TestClean(unittest.TestCase):
         untracked.write_text("content")
 
         result = get_untracked_files(self.repo)
-        for p in result:
+        for p, _ in result:
             self.assertFalse(p.startswith(".pygit"), f".pygit path leaked: {p}")
 
     def test_dry_run_does_not_delete(self):
@@ -179,6 +182,79 @@ class TestClean(unittest.TestCase):
             cwd=self.d, capture_output=True, text=True, env=env
         )
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+
+    def test_untracked_dir_contents_not_listed_without_d(self):
+        """Without -d, files inside an entirely untracked dir are not listed."""
+        self._commit_file("tracked.txt", "hello")
+        untracked_dir = Path(self.d) / "untracked_dir"
+        untracked_dir.mkdir()
+        (untracked_dir / "f.txt").write_text("x")
+
+        result = get_clean_targets(self.repo, include_dirs=False)
+        paths = [p for p, _ in result]
+        self.assertNotIn("untracked_dir", paths)
+        self.assertNotIn("untracked_dir/f.txt", paths)
+
+    def test_untracked_dir_contents_not_deleted_without_d(self):
+        """Without -d, clean -f leaves files inside an untracked dir untouched."""
+        self._commit_file("tracked.txt", "hello")
+        untracked_dir = Path(self.d) / "untracked_dir"
+        untracked_dir.mkdir()
+        (untracked_dir / "f.txt").write_text("x")
+
+        clean_repo(self.repo, dry_run=False, include_dirs=False)
+        self.assertTrue((untracked_dir / "f.txt").exists())
+
+    def test_untracked_dir_removed_with_d(self):
+        """With -d, clean -fd removes the whole untracked directory."""
+        self._commit_file("tracked.txt", "hello")
+        untracked_dir = Path(self.d) / "untracked_dir"
+        untracked_dir.mkdir()
+        (untracked_dir / "f.txt").write_text("x")
+
+        clean_repo(self.repo, dry_run=False, include_dirs=True)
+        self.assertFalse(untracked_dir.exists())
+
+    def test_mixed_dir_only_untracked_files_listed(self):
+        """In a mixed dir (tracked + untracked), only untracked files are listed."""
+        self._commit_file("tracked.txt", "hello")
+        mixed_dir = Path(self.d) / "mixed"
+        mixed_dir.mkdir()
+        (mixed_dir / "tracked_in_dir.txt").write_text("tracked")
+        (mixed_dir / "untracked_in_dir.txt").write_text("untracked")
+
+        index = Index(self.repo)
+        index.load()
+        full = mixed_dir / "tracked_in_dir.txt"
+        sha = hash_object(full.read_bytes(), "blob", self.repo.root)
+        index.add("mixed/tracked_in_dir.txt", sha, "100644")
+        index.save()
+
+        result = get_clean_targets(self.repo, include_dirs=False)
+        paths = [p for p, _ in result]
+        self.assertIn("mixed/untracked_in_dir.txt", paths)
+        self.assertNotIn("mixed/tracked_in_dir.txt", paths)
+        self.assertNotIn("mixed", paths)
+
+    def test_mixed_dir_only_untracked_deleted(self):
+        """In a mixed dir, clean -f removes only the untracked file."""
+        self._commit_file("tracked.txt", "hello")
+        mixed_dir = Path(self.d) / "mixed"
+        mixed_dir.mkdir()
+        (mixed_dir / "tracked_in_dir.txt").write_text("tracked")
+        (mixed_dir / "untracked_in_dir.txt").write_text("untracked")
+
+        index = Index(self.repo)
+        index.load()
+        full = mixed_dir / "tracked_in_dir.txt"
+        sha = hash_object(full.read_bytes(), "blob", self.repo.root)
+        index.add("mixed/tracked_in_dir.txt", sha, "100644")
+        index.save()
+
+        clean_repo(self.repo, dry_run=False, include_dirs=False)
+        self.assertTrue((mixed_dir / "tracked_in_dir.txt").exists())
+        self.assertFalse((mixed_dir / "untracked_in_dir.txt").exists())
+        self.assertTrue(mixed_dir.exists())
 
 
 if __name__ == "__main__":
