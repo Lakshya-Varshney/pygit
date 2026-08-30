@@ -21,6 +21,32 @@ def _get_current_sha(repo):
     return head.strip()
 
 
+def _resolve_ref(repo, name):
+    """Resolve a name to a sha, trying sha prefix, then branch, then tag.
+
+    Returns full sha string. Exits with error on failure.
+    """
+    if all(c in "0123456789abcdef" for c in name.lower()):
+        try:
+            return repo.resolve_sha_prefix(name)
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+
+    try:
+        return repo.get_ref(f"refs/heads/{name}")
+    except FileNotFoundError:
+        pass
+
+    try:
+        return repo.get_ref(f"refs/tags/{name}")
+    except FileNotFoundError:
+        pass
+
+    print(f"error: unknown revision '{name}'", file=sys.stderr)
+    sys.exit(1)
+
+
 def _switch_branch(repo, branch_name, force=False):
     """Create or reset a branch at HEAD, then switch to it.
 
@@ -222,16 +248,7 @@ def cmd_show(args):
 
     repo = Repository(".")
 
-    sha = args.sha
-    if not (len(sha) == 64 and all(c in "0123456789abcdef" for c in sha)):
-        try:
-            sha = repo.get_ref(f"refs/heads/{sha}")
-        except FileNotFoundError:
-            try:
-                sha = repo.get_ref(f"refs/tags/{sha}")
-            except FileNotFoundError:
-                print(f"error: unknown revision '{args.sha}'", file=sys.stderr)
-                sys.exit(1)
+    sha = _resolve_ref(repo, args.sha)
 
     try:
         obj_type, data = read_object(sha, repo.root)
@@ -557,9 +574,15 @@ def cmd_checkout(args):
             except Exception:
                 pass
 
-    if len(target) == 64 and all(c in "0123456789abcdef" for c in target):
-        commit_sha = target
-    else:
+    is_sha_target = False
+    if all(c in "0123456789abcdef" for c in target.lower()):
+        try:
+            commit_sha = repo.resolve_sha_prefix(target)
+            is_sha_target = True
+        except ValueError:
+            pass
+
+    if not is_sha_target:
         ref_path = f"refs/heads/{target}"
         try:
             commit_sha = repo.get_ref(ref_path)
@@ -603,7 +626,7 @@ def cmd_checkout(args):
     except Exception:
         pass
 
-    if len(target) == 64 and all(c in "0123456789abcdef" for c in target):
+    if is_sha_target:
         repo.set_head_detached(commit_sha)
         repo.append_reflog(old_head, commit_sha, "checkout")
     else:
@@ -611,7 +634,7 @@ def cmd_checkout(args):
         repo.append_reflog(old_head, commit_sha, "checkout")
 
     repo.checkout_tree(tree_sha, old_tracked=old_tracked)
-    print(f"Switched to branch '{target}'" if len(target) != 64 else f"HEAD is now at {commit_sha[:7]}")
+    print(f"Switched to branch '{target}'" if not is_sha_target else f"HEAD is now at {commit_sha[:7]}")
 
 
 def _checkout_paths(repo, paths):
@@ -685,14 +708,7 @@ def cmd_reset(args):
     repo = Repository(".")
 
     # Resolve commit
-    commit_sha = args.commit
-    if not (len(commit_sha) == 64 and all(c in "0123456789abcdef" for c in commit_sha)):
-        # Try as ref
-        try:
-            commit_sha = repo.get_ref(f"refs/heads/{args.commit}")
-        except FileNotFoundError:
-            print(f"error: pathspec '{args.commit}' did not match any commits", file=sys.stderr)
-            sys.exit(1)
+    commit_sha = _resolve_ref(repo, args.commit)
 
     head = repo.get_head()
     if not head.startswith("ref: "):
@@ -761,8 +777,9 @@ def cmd_cherry_pick(args):
     from .merge import cherry_pick
 
     repo = Repository(".")
+    sha = _resolve_ref(repo, args.sha)
     try:
-        cherry_pick(repo, args.sha)
+        cherry_pick(repo, sha)
     except Exception as e:
         print(f"cherry-pick: {e}", file=sys.stderr)
         sys.exit(1)
@@ -838,8 +855,9 @@ def cmd_revert(args):
     from .merge import revert
 
     repo = Repository(".")
+    sha = _resolve_ref(repo, args.sha)
     try:
-        revert(repo, args.sha)
+        revert(repo, sha)
     except Exception as e:
         print(f"revert: {e}", file=sys.stderr)
         sys.exit(1)
@@ -911,9 +929,13 @@ def cmd_switch(args):
         target = branch_name
     elif args.target:
         target = args.target
-        if len(target) == 64 and all(c in "0123456789abcdef" for c in target):
-            print(f"fatal: cannot switch to a commit", file=sys.stderr)
-            sys.exit(1)
+        if all(c in "0123456789abcdef" for c in target.lower()):
+            try:
+                repo.resolve_sha_prefix(target)
+                print(f"fatal: cannot switch to a commit", file=sys.stderr)
+                sys.exit(1)
+            except ValueError:
+                pass
         ref_path = f"refs/heads/{target}"
         try:
             repo.get_ref(ref_path)

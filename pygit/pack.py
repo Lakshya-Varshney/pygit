@@ -142,7 +142,6 @@ def find_reachable_objects(repo):
             obj_type, data = read_object(sha, repo.root)
             if obj_type == "commit":
                 commit = deserialize_commit(data)
-                reachable.add(commit["tree"])
                 walk_tree(commit["tree"])
                 for parent in commit["parents"]:
                     walk_commit(parent)

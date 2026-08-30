@@ -163,6 +163,74 @@ class Repository:
         with open(self.git_dir / "config", "w") as f:
             config.write(f)
 
+    def resolve_sha_prefix(self, prefix):
+        """Resolve an abbreviated sha prefix to a full sha.
+
+        Args:
+            prefix: 4-64 character hex string (sha prefix)
+
+        Returns:
+            Full 64-character sha string
+
+        Raises:
+            ValueError: if prefix is too short, matches nothing, or is ambiguous
+        """
+        prefix = prefix.lower()
+
+        if len(prefix) == 64 and all(c in "0123456789abcdef" for c in prefix):
+            return prefix
+
+        if len(prefix) < 4:
+            raise ValueError(
+                f"error: short sha '{prefix}' is too short (minimum 4 characters)"
+            )
+
+        if not all(c in "0123456789abcdef" for c in prefix):
+            raise ValueError(f"error: '{prefix}' is not a valid sha prefix")
+
+        matches = []
+
+        objects_dir = self.git_dir / "objects"
+        if objects_dir.exists():
+            if len(prefix) >= 2:
+                subdir = objects_dir / prefix[:2]
+                if subdir.exists():
+                    for f in subdir.iterdir():
+                        if f.is_file():
+                            candidate = prefix[:2] + f.name
+                            if candidate.startswith(prefix):
+                                matches.append(candidate)
+            else:
+                for subdir in objects_dir.iterdir():
+                    if subdir.is_dir() and len(subdir.name) == 2:
+                        for f in subdir.iterdir():
+                            if f.is_file():
+                                candidate = subdir.name + f.name
+                                if candidate.startswith(prefix):
+                                    matches.append(candidate)
+
+        pack_dir = objects_dir / "pack"
+        if pack_dir.exists():
+            for json_file in pack_dir.glob("*.json"):
+                try:
+                    import json
+                    index_data = json.loads(json_file.read_text())
+                    for sha in index_data:
+                        if sha.startswith(prefix):
+                            if sha not in matches:
+                                matches.append(sha)
+                except Exception:
+                    pass
+
+        if len(matches) == 0:
+            raise ValueError(f"error: no object matches prefix '{prefix}'")
+        elif len(matches) > 1:
+            raise ValueError(
+                f"error: short sha '{prefix}' is ambiguous, matches multiple objects"
+            )
+
+        return matches[0]
+
     def add_remote(self, name, address):
         """Add a remote to config."""
         config = self.get_config()

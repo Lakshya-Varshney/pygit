@@ -68,19 +68,37 @@ def read_object(sha, repo_root=None):
     objects_dir = _repo_objects_dir(repo_root)
     obj_path = objects_dir / sha[:2] / sha[2:]
 
-    if not obj_path.exists():
-        raise FileNotFoundError(f"Object {sha} not found")
+    if obj_path.exists():
+        compressed = obj_path.read_bytes()
+        store = zlib.decompress(compressed)
+        null_idx = store.index(b"\0")
+        header = store[:null_idx].decode()
+        obj_type = header.split()[0]
+        content = store[null_idx + 1:]
+        return obj_type, content
 
-    compressed = obj_path.read_bytes()
-    store = zlib.decompress(compressed)
+    pack_dir = objects_dir / "pack"
+    if pack_dir.exists():
+        import json
+        for json_file in pack_dir.glob("*.json"):
+            try:
+                index_data = json.loads(json_file.read_text())
+                if sha in index_data:
+                    pack_file = json_file.with_suffix(".pack")
+                    offset = index_data[sha]
+                    with open(pack_file, "rb") as f:
+                        f.seek(offset)
+                        compressed = f.read()
+                    store = zlib.decompress(compressed)
+                    null_idx = store.index(b"\0")
+                    header = store[:null_idx].decode()
+                    obj_type = header.split()[0]
+                    content = store[null_idx + 1:]
+                    return obj_type, content
+            except Exception:
+                pass
 
-    # Parse header: "<type> <length>\0"
-    null_idx = store.index(b"\0")
-    header = store[:null_idx].decode()
-    obj_type = header.split()[0]
-    content = store[null_idx + 1:]
-
-    return obj_type, content
+    raise FileNotFoundError(f"Object {sha} not found")
 
 
 def serialize_blob(data):
