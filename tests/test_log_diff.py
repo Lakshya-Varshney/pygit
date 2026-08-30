@@ -1,4 +1,4 @@
-"""Tests for Round 12 additions."""
+"""Tests for pygit.log_diff — commit history diffing."""
 import shutil
 import tempfile
 import time
