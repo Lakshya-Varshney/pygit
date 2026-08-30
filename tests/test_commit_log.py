@@ -5,9 +5,9 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, read_object, deserialize_commit
-from pygit.index import Index
+from pygit_single import Repository
+from pygit_single import hash_object, read_object, deserialize_commit
+from pygit_single import Index
 
 
 class TestInit(unittest.TestCase):
@@ -156,7 +156,7 @@ class TestLog(unittest.TestCase):
         parent_sha = None
 
         for i in range(3):
-            from pygit.objects import serialize_tree
+            from pygit_single import serialize_tree
             tree_data = serialize_tree([])
             tree_sha = hash_object(tree_data, "tree", self.repo.root)
 

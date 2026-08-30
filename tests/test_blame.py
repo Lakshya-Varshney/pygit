@@ -5,9 +5,9 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, serialize_tree, serialize_commit
-from pygit.diff import blame
+from pygit_single import Repository
+from pygit_single import hash_object, serialize_tree, serialize_commit
+from pygit_single import blame
 
 
 class TestBlame(unittest.TestCase):

@@ -6,10 +6,10 @@ import time
 import unittest
 from pathlib import Path
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object, serialize_commit
-from pygit.log_filter import walk_commits, commits_that_touched_path
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object, serialize_commit
+from pygit_single import walk_commits, commits_that_touched_path
 
 
 class TestWalkCommits(unittest.TestCase):

@@ -5,8 +5,8 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, serialize_tree, serialize_commit
+from pygit_single import Repository
+from pygit_single import hash_object, serialize_tree, serialize_commit
 
 
 class TestCherryPick(unittest.TestCase):
@@ -33,7 +33,7 @@ class TestCherryPick(unittest.TestCase):
         commit_sha = hash_object(commit_data, "commit", self.repo.root)
 
         # Verify the commit has the tree
-        from pygit.objects import read_object, deserialize_commit
+        from pygit_single import read_object, deserialize_commit
         _, data = read_object(commit_sha, self.repo.root)
         commit = deserialize_commit(data)
         self.assertEqual(commit["tree"], tree_sha)
@@ -51,7 +51,7 @@ class TestRebase(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def test_rebase_finds_base(self):
-        from pygit.merge import find_merge_base
+        from pygit_single import find_merge_base
         # Create linear history
         tree_data = serialize_tree([])
         tree_sha = hash_object(tree_data, "tree", self.repo.root)
@@ -94,7 +94,7 @@ class TestRevert(unittest.TestCase):
         commit_sha = hash_object(commit_data, "commit", self.repo.root)
 
         # Verify commit exists
-        from pygit.objects import read_object
+        from pygit_single import read_object
         obj_type, _ = read_object(commit_sha, self.repo.root)
         self.assertEqual(obj_type, "commit")
 

@@ -2,7 +2,7 @@
 
 import io
 import unittest
-from pygit.colors import (
+from pygit_single import (
     should_color, colorize, colorize_diff_line, colorize_status_item,
     RED, GREEN, CYAN, RESET
 )

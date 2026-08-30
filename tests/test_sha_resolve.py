@@ -5,9 +5,9 @@ import tempfile
 import time
 import unittest
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object, serialize_commit, serialize_tree
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object, serialize_commit, serialize_tree
 
 
 def _make_commit(repo, message, files=None):
@@ -92,13 +92,13 @@ class TestResolveShaPrefix(unittest.TestCase):
             self.assertIn("ambiguous", str(ctx.exception))
 
     def test_prefix_matches_after_gc(self):
-        from pygit.pack import gc
+        from pygit_single import gc
         gc(self.repo)
         result = self.repo.resolve_sha_prefix(self.sha1[:7])
         self.assertEqual(result, self.sha1)
 
     def test_prefix_resolves_packfile_objects(self):
-        from pygit.pack import gc
+        from pygit_single import gc
         gc(self.repo)
         result = self.repo.resolve_sha_prefix(self.sha2[:7])
         self.assertEqual(result, self.sha2)

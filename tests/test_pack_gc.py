@@ -5,9 +5,9 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, read_object, serialize_tree, serialize_commit
-from pygit.pack import PackWriter, PackReader, gc, find_reachable_objects
+from pygit_single import Repository
+from pygit_single import hash_object, read_object, serialize_tree, serialize_commit
+from pygit_single import PackWriter, PackReader, gc, find_reachable_objects
 
 
 class TestPackWriter(unittest.TestCase):

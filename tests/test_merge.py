@@ -5,9 +5,9 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, serialize_tree
-from pygit.merge import find_merge_base, three_way_merge
+from pygit_single import Repository
+from pygit_single import hash_object, serialize_tree
+from pygit_single import find_merge_base, three_way_merge
 
 
 class TestFindMergeBase(unittest.TestCase):

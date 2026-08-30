@@ -5,10 +5,10 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object
-from pygit.stash import stash_push, stash_pop, stash_list
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object
+from pygit_single import stash_push, stash_pop, stash_list
 
 
 class TestStash(unittest.TestCase):
@@ -25,10 +25,10 @@ class TestStash(unittest.TestCase):
 
     def test_stash_push_pop(self):
         # Create a commit first so HEAD has a valid tree
-        from pygit.objects import serialize_tree
+        from pygit_single import serialize_tree
         tree_data = serialize_tree([])
         tree_sha = hash_object(tree_data, "tree", self.repo.root)
-        from pygit.objects import serialize_commit
+        from pygit_single import serialize_commit
         commit_data = serialize_commit(
             tree_sha, [], "Test <t@t.com>", "Test <t@t.com>", 1000, "initial"
         )

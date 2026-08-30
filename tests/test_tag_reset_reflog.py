@@ -5,8 +5,8 @@ import shutil
 import tempfile
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, serialize_commit, serialize_tree
+from pygit_single import Repository
+from pygit_single import hash_object, serialize_commit, serialize_tree
 
 
 class TestTag(unittest.TestCase):

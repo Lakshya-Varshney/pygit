@@ -6,9 +6,9 @@ import tempfile
 import time
 import unittest
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import (
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import (
     hash_object, serialize_commit, read_object, deserialize_commit,
 )
 
@@ -62,7 +62,7 @@ class TestCheckoutNewBranch(unittest.TestCase):
 
     def test_checkout_b_sets_ref(self):
         sha = _make_commit(self.repo, "first")
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "feature")
         self.assertTrue(result)
         self.assertEqual(self.repo.get_ref("refs/heads/feature"), sha)
@@ -70,7 +70,7 @@ class TestCheckoutNewBranch(unittest.TestCase):
     def test_checkout_b_fails_if_exists(self):
         _make_commit(self.repo, "first")
         self.repo.set_ref("refs/heads/existing", _get_head_sha(self.repo))
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "existing")
         self.assertFalse(result)
 
@@ -78,7 +78,7 @@ class TestCheckoutNewBranch(unittest.TestCase):
         _make_commit(self.repo, "first")
         self.repo.set_ref("refs/heads/feature", _get_head_sha(self.repo))
         _make_commit(self.repo, "second")
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "feature", force=True)
         self.assertTrue(result)
         self.assertEqual(self.repo.get_ref("refs/heads/feature"), _get_head_sha(self.repo))
@@ -86,7 +86,7 @@ class TestCheckoutNewBranch(unittest.TestCase):
     def test_checkout_b_does_not_switch_head(self):
         _make_commit(self.repo, "first")
         original_head = self.repo.get_head()
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         _switch_branch(self.repo, "feature")
         self.assertEqual(self.repo.get_head(), original_head)
 
@@ -102,7 +102,7 @@ class TestSwitch(unittest.TestCase):
 
     def test_switch_c_sets_ref(self):
         sha = _make_commit(self.repo, "first")
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "dev")
         self.assertTrue(result)
         self.assertEqual(self.repo.get_ref("refs/heads/dev"), sha)
@@ -110,7 +110,7 @@ class TestSwitch(unittest.TestCase):
     def test_switch_c_fails_if_exists(self):
         _make_commit(self.repo, "first")
         self.repo.set_ref("refs/heads/dev", _get_head_sha(self.repo))
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "dev")
         self.assertFalse(result)
 
@@ -118,7 +118,7 @@ class TestSwitch(unittest.TestCase):
         _make_commit(self.repo, "first")
         self.repo.set_ref("refs/heads/dev", _get_head_sha(self.repo))
         _make_commit(self.repo, "second")
-        from pygit.__main__ import _switch_branch
+        from pygit_single import _switch_branch
         result = _switch_branch(self.repo, "dev", force=True)
         self.assertTrue(result)
 
@@ -158,7 +158,7 @@ class TestCheckoutPath(unittest.TestCase):
     def test_checkout_paths_restores_file(self):
         _make_commit(self.repo, "first", files={"a.txt": "original"})
         (self.repo.root / "a.txt").write_text("modified")
-        from pygit.__main__ import _checkout_paths
+        from pygit_single import _checkout_paths
         _checkout_paths(self.repo, ["a.txt"])
         self.assertEqual((self.repo.root / "a.txt").read_text(), "original")
 
@@ -166,7 +166,7 @@ class TestCheckoutPath(unittest.TestCase):
         _make_commit(self.repo, "first", files={"a.txt": "content"})
         _make_commit(self.repo, "second", files={"a.txt": "v2"})
         (self.repo.root / "a.txt").write_text("dirty")
-        from pygit.__main__ import _checkout_paths
+        from pygit_single import _checkout_paths
         _checkout_paths(self.repo, ["a.txt"])
         self.assertEqual((self.repo.root / "a.txt").read_text(), "v2")
 

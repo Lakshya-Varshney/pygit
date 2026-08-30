@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pygit.ignore import load_ignore, is_ignored
+from pygit_single import load_ignore, is_ignored
 
 
 class TestIgnore(unittest.TestCase):

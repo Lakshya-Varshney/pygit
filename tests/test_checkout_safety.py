@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object
-from pygit.ignore import load_ignore, is_ignored
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object
+from pygit_single import load_ignore, is_ignored
 
 
 class TestDiff(unittest.TestCase):

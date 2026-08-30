@@ -1,14 +1,14 @@
-"""Tests for pygit remote list, log author filter, and diff stat."""
+"""Tests for Round 12 additions."""
 import shutil
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object, serialize_commit
-from pygit.colors import YELLOW
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object, serialize_commit
+from pygit_single import YELLOW
 
 
 class TestRemoteList(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestRemoteList(unittest.TestCase):
         shutil.rmtree(self.d, ignore_errors=True)
 
     def test_remote_list_via_argparse(self):
-        from pygit.__main__ import cmd_remote
+        from pygit_single import cmd_remote
         import argparse
         self.repo.add_remote("origin", "localhost:9418")
         self.repo.add_remote("upstream", "example.com:9418")
@@ -31,14 +31,14 @@ class TestRemoteList(unittest.TestCase):
         cmd_remote(args)
 
     def test_remote_verbose_via_argparse(self):
-        from pygit.__main__ import cmd_remote
+        from pygit_single import cmd_remote
         import argparse
         self.repo.add_remote("origin", "localhost:9418")
         args = argparse.Namespace(remote_action=None, name=None, address=None, verbose=True)
         cmd_remote(args)
 
     def test_remote_bare_via_argparse(self):
-        from pygit.__main__ import cmd_remote
+        from pygit_single import cmd_remote
         import argparse
         self.repo.add_remote("origin", "localhost:9418")
         args = argparse.Namespace(remote_action=None, name=None, address=None, verbose=False)
@@ -91,7 +91,7 @@ class TestLogAuthor(unittest.TestCase):
         self._commit("b.txt", "v2", "Bob", "bob commit")
         self._commit("c.txt", "v3", "Alice", "alice commit 2")
 
-        from pygit.log_filter import walk_commits
+        from pygit_single import walk_commits
         commits = list(walk_commits(self.repo, self.repo.get_ref("refs/heads/main")))
         alice_commits = [c for _, c in commits if "Alice" in c["author"]]
         self.assertEqual(len(alice_commits), 2)
@@ -100,7 +100,7 @@ class TestLogAuthor(unittest.TestCase):
         self._commit("a.txt", "v1", "Alice", "alice commit")
         self._commit("b.txt", "v2", "Bob", "bob commit")
 
-        from pygit.log_filter import walk_commits
+        from pygit_single import walk_commits
         commits = list(walk_commits(self.repo, self.repo.get_ref("refs/heads/main")))
         alice_commits = [c for _, c in commits if "alice" in c["author"].lower()]
         self.assertEqual(len(alice_commits), 1)
@@ -148,7 +148,7 @@ class TestDiffStat(unittest.TestCase):
         return cs
 
     def test_compute_stat(self):
-        from pygit.__main__ import _compute_stat
+        from pygit_single import _compute_stat
         diff_lines = [
             "--- a/a.txt",
             "+++ b/a.txt",
@@ -167,7 +167,7 @@ class TestDiffStat(unittest.TestCase):
         self.assertEqual(total_del, 1)
 
     def test_compute_stat_multi_file(self):
-        from pygit.__main__ import _compute_stat
+        from pygit_single import _compute_stat
         diff_lines = [
             "--- a/a.txt",
             "+++ b/a.txt",
@@ -186,14 +186,14 @@ class TestDiffStat(unittest.TestCase):
         self.assertEqual(total_del, 1)
 
     def test_compute_stat_empty(self):
-        from pygit.__main__ import _compute_stat
+        from pygit_single import _compute_stat
         file_stats, total_ins, total_del = _compute_stat([])
         self.assertEqual(file_stats, [])
         self.assertEqual(total_ins, 0)
         self.assertEqual(total_del, 0)
 
     def test_compute_stat_no_changes(self):
-        from pygit.__main__ import _compute_stat
+        from pygit_single import _compute_stat
         diff_lines = [
             "--- a/a.txt",
             "+++ b/a.txt",

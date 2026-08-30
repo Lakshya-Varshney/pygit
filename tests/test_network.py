@@ -8,9 +8,9 @@ import threading
 import time
 import unittest
 
-from pygit.repository import Repository
-from pygit.objects import hash_object, serialize_tree, serialize_commit
-from pygit.network import Server, Client
+from pygit_single import Repository
+from pygit_single import hash_object, serialize_tree, serialize_commit
+from pygit_single import Server, Client
 
 
 class TestNetwork(unittest.TestCase):

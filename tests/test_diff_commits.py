@@ -6,10 +6,10 @@ import time
 import unittest
 from pathlib import Path
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object, serialize_commit
-from pygit.diff_commits import diff_two_commits, resolve_commit_ref
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object, serialize_commit
+from pygit_single import diff_two_commits, resolve_commit_ref
 
 
 class TestDiffCommits(unittest.TestCase):
@@ -77,7 +77,7 @@ class TestDiffCommits(unittest.TestCase):
         index.save()
         tree_sha = self.repo.build_tree_from_index(index)
         import time
-        from pygit.objects import serialize_commit, hash_object as ho
+        from pygit_single import serialize_commit, hash_object as ho
         author = "Test <t@t.com>"
         epoch = int(time.time())
         cd = serialize_commit(tree_sha, [sha2], author, author, epoch, "third")

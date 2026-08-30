@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pygit.objects import (
+from pygit_single import (
     hash_object, read_object,
     serialize_blob, deserialize_blob,
     serialize_tree, deserialize_tree,

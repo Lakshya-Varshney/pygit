@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pygit.repository import Repository
-from pygit.index import Index
-from pygit.objects import hash_object
-from pygit.clean import get_untracked_files, get_clean_targets, clean_repo
+from pygit_single import Repository
+from pygit_single import Index
+from pygit_single import hash_object
+from pygit_single import get_untracked_files, get_clean_targets, clean_repo
 
 
 class TestClean(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestClean(unittest.TestCase):
             except Exception:
                 pass
         import time
-        from pygit.objects import serialize_commit, hash_object as ho
+        from pygit_single import serialize_commit, hash_object as ho
         parents = [parent] if parent else []
         author = "Test <t@t.com>"
         epoch = int(time.time())
@@ -178,7 +178,7 @@ class TestClean(unittest.TestCase):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent)
         result = subprocess.run(
-            [sys.executable, "-m", "pygit", "log"],
+            [sys.executable, str(Path(__file__).resolve().parent.parent / "pygit_single.py"), "log"],
             cwd=self.d, capture_output=True, text=True, env=env
         )
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
