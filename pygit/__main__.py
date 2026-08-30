@@ -423,16 +423,16 @@ def _compute_stat(diff_lines):
     current_file = None
     ins = del_ = 0
     for line in diff_lines:
-        if line.startswith("diff --git"):
-            m = re.search(r"b/(.+)$", line)
-            if m:
-                if current_file:
-                    file_stats.append((current_file, ins, del_))
-                current_file = m.group(1)
-                ins = del_ = 0
-        elif line.startswith("+") and not line.startswith("+++"):
+        if line.startswith("--- a/"):
+            continue
+        elif line.startswith("+++ b/"):
+            if current_file:
+                file_stats.append((current_file, ins, del_))
+            current_file = line[6:]
+            ins = del_ = 0
+        elif line.startswith("+"):
             ins += 1
-        elif line.startswith("-") and not line.startswith("---"):
+        elif line.startswith("-"):
             del_ += 1
     if current_file:
         file_stats.append((current_file, ins, del_))
