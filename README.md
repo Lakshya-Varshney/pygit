@@ -3,7 +3,7 @@
 A real, content-addressed version control system in pure Python with **zero dependencies**.
 
 ```
-pygit.pyz  ~ 267 KB  |  13 modules  |  4,027 lines  |  139 tests  |  27 commands  |  Python 3.13+
+pygit.pyz  ~ 312 KB  |  13 modules  |  4,027 lines  |  141 tests  |  27 commands  |  Python 3.13+
 ```
 
 ## What is this?

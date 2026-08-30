@@ -150,7 +150,6 @@ class TestDiffStat(unittest.TestCase):
     def test_compute_stat(self):
         from pygit.__main__ import _compute_stat
         diff_lines = [
-            "diff --git a/a.txt b/a.txt",
             "--- a/a.txt",
             "+++ b/a.txt",
             "@@ -1,3 +1,5 @@",
@@ -170,13 +169,11 @@ class TestDiffStat(unittest.TestCase):
     def test_compute_stat_multi_file(self):
         from pygit.__main__ import _compute_stat
         diff_lines = [
-            "diff --git a/a.txt b/a.txt",
             "--- a/a.txt",
             "+++ b/a.txt",
             "@@ -1,2 +1,3 @@",
             " line1",
             "+new a",
-            "diff --git a/b.txt b/b.txt",
             "--- a/b.txt",
             "+++ b/b.txt",
             "@@ -1,2 +1,1 @@",
@@ -187,6 +184,28 @@ class TestDiffStat(unittest.TestCase):
         self.assertEqual(len(file_stats), 2)
         self.assertEqual(total_ins, 1)
         self.assertEqual(total_del, 1)
+
+    def test_compute_stat_empty(self):
+        from pygit.__main__ import _compute_stat
+        file_stats, total_ins, total_del = _compute_stat([])
+        self.assertEqual(file_stats, [])
+        self.assertEqual(total_ins, 0)
+        self.assertEqual(total_del, 0)
+
+    def test_compute_stat_no_changes(self):
+        from pygit.__main__ import _compute_stat
+        diff_lines = [
+            "--- a/a.txt",
+            "+++ b/a.txt",
+            "@@ -1,2 +1,2 @@",
+            " line1",
+            " line2",
+        ]
+        file_stats, total_ins, total_del = _compute_stat(diff_lines)
+        self.assertEqual(len(file_stats), 1)
+        self.assertEqual(file_stats[0], ("a.txt", 0, 0))
+        self.assertEqual(total_ins, 0)
+        self.assertEqual(total_del, 0)
 
 
 if __name__ == "__main__":
