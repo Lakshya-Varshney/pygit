@@ -205,6 +205,7 @@ def cmd_log(args):
     """Walk parent chain from HEAD, print commit info."""
     from .repository import Repository
     from .objects import read_object, deserialize_commit
+    from .log_filter import walk_commits, commits_that_touched_path
 
     repo = Repository(".")
     try:
@@ -218,35 +219,34 @@ def cmd_log(args):
         print("No commits yet", file=sys.stderr)
         return
 
-    while sha:
-        try:
-            obj_type, data = read_object(sha, repo.root)
-            if obj_type != "commit":
-                break
-            commit = deserialize_commit(data)
-            if args.oneline:
-                print(f"{sha[:7]} {commit['message'].splitlines()[0]}")
-            else:
-                print(f"commit {sha}")
-                if len(commit["parents"]) > 1:
-                    print(f"Merge: {' '.join(p[:7] for p in commit['parents'])}")
-                print(f"Author: {commit['author']}")
-                import datetime
-                dt = datetime.datetime.fromtimestamp(commit["committer_epoch"])
-                print(f"Date:   {dt.strftime('%a %b %d %H:%M:%S %Y %z')}")
-                print(f"\n    {commit['message']}\n")
-            sha = commit["parents"][0] if commit["parents"] else None
-        except Exception:
-            break
+    if args.path:
+        commit_iter = commits_that_touched_path(repo, sha, args.path)
+    else:
+        commit_iter = walk_commits(repo, sha, count=args.count)
+
+    for commit_sha, commit in commit_iter:
+        if args.oneline:
+            print(f"{commit_sha[:7]} {commit['message'].splitlines()[0]}")
+        else:
+            print(f"commit {commit_sha}")
+            if len(commit["parents"]) > 1:
+                print(f"Merge: {' '.join(p[:7] for p in commit['parents'])}")
+            print(f"Author: {commit['author']}")
+            import datetime
+            dt = datetime.datetime.fromtimestamp(commit["committer_epoch"])
+            print(f"Date:   {dt.strftime('%a %b %d %H:%M:%S %Y %z')}")
+            print(f"\n    {commit['message']}\n")
 
 
 def cmd_show(args):
     """Show commit metadata and diff."""
     from .repository import Repository
     from .objects import read_object, deserialize_commit
+    from .colors import should_color, colorize_diff_line
     import difflib
 
     repo = Repository(".")
+    use_color = should_color(getattr(args, "color", None))
 
     sha = _resolve_ref(repo, args.sha)
 
@@ -309,15 +309,18 @@ def cmd_show(args):
 
         diff = list(difflib.unified_diff(old_lines, new_lines, fromfile=f"a/{path}", tofile=f"b/{path}"))
         if diff:
-            sys.stdout.writelines(diff)
+            for line in diff:
+                sys.stdout.write(colorize_diff_line(line, use_color))
 
 
 def cmd_status(args):
     """Diff working tree vs index vs HEAD tree."""
     from .repository import Repository
     from .index import Index
+    from .colors import should_color, colorize_status_item
 
     repo = Repository(".")
+    use_color = should_color(getattr(args, "color", None))
     index = Index(repo)
     index.load()
 
@@ -371,21 +374,21 @@ def cmd_status(args):
         print("Changes to be committed:")
         print("  (use \"git rm --cached <file>...\" to unstage)")
         for s in staged:
-            print(s)
+            print(colorize_status_item(s, "staged", use_color))
         print()
 
     if modified:
         print("Changes not staged for commit:")
         print("  (use \"git add <file>...\" to update what will be committed)")
         for m in modified:
-            print(m)
+            print(colorize_status_item(m, "modified", use_color))
         print()
 
     if untracked:
         print("Untracked files:")
         print("  (use \"git add <file>...\" to include in what will be committed)")
         for u in untracked:
-            print(u)
+            print(colorize_status_item(u, "untracked", use_color))
         print()
 
     if not staged and not modified and not untracked:
@@ -393,16 +396,47 @@ def cmd_status(args):
 
 
 def cmd_diff(args):
-    """Show diff between working tree and index, or index and HEAD."""
+    """Show diff between working tree and index, or index and HEAD, or two commits."""
     import difflib
     from .repository import Repository
     from .index import Index
+    from .colors import should_color, colorize_diff_line
 
     repo = Repository(".")
+    use_color = should_color(getattr(args, "color", None))
+
+    # Two-commit diff mode: diff <commit1> <commit2>
+    if args.commits and len(args.commits) == 2:
+        from .diff_commits import resolve_commit_ref, diff_two_commits
+        try:
+            sha1 = resolve_commit_ref(repo, args.commits[0])
+            sha2 = resolve_commit_ref(repo, args.commits[1])
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            sys.exit(1)
+        diff_lines = diff_two_commits(repo, sha1, sha2)
+        for line in diff_lines:
+            sys.stdout.write(colorize_diff_line(line, use_color))
+        return
     index = Index(repo)
     index.load()
 
-    paths = args.paths if args.paths else [e["path"] for e in index.get_entries()]
+    # If exactly 1 arg that doesn't resolve as a commit, treat as path
+    if args.commits and len(args.commits) == 1:
+        from .diff_commits import resolve_commit_ref
+        try:
+            resolve_commit_ref(repo, args.commits[0])
+            # It resolved as a commit but we only have 1 — error
+            print("error: diff requires two commits to compare", file=sys.stderr)
+            sys.exit(1)
+        except ValueError:
+            # Not a commit, treat as path
+            paths = args.commits
+    elif args.commits and len(args.commits) > 2:
+        print("error: diff takes 0, 1, or 2 commit arguments", file=sys.stderr)
+        sys.exit(1)
+    else:
+        paths = args.commits if args.commits else [e["path"] for e in index.get_entries()]
 
     for path in paths:
         ie = index.get_entry(path)
@@ -435,15 +469,18 @@ def cmd_diff(args):
                 idx_lines = []
             diff = difflib.unified_diff(idx_lines, working, fromfile=f"a/{path}", tofile=f"b/{path}")
 
-        sys.stdout.writelines(diff)
+        for line in diff:
+            sys.stdout.write(colorize_diff_line(line, use_color))
 
 
 def cmd_branch(args):
     """Create, list, or delete branches."""
     from .repository import Repository
     from .network import find_reachable
+    from .colors import should_color, colorize, GREEN
 
     repo = Repository(".")
+    use_color = should_color(getattr(args, "color", None))
 
     if args.delete or args.force_delete:
         branch_name = args.name
@@ -503,8 +540,32 @@ def cmd_branch(args):
         except Exception:
             pass
         for name in sorted(p.name for p in heads_dir.iterdir() if p.is_file()):
-            prefix = "* " if name == current else "  "
-            print(f"{prefix}{name}")
+            if name == current:
+                prefix = "* "
+                display = colorize(f"{prefix}{name}", GREEN) if use_color else f"{prefix}{name}"
+            else:
+                prefix = "  "
+                display = f"{prefix}{name}"
+            print(display)
+
+
+def cmd_clean(args):
+    """Remove untracked files from the working tree."""
+    from .repository import Repository
+    from .clean import clean_repo
+
+    repo = Repository(".")
+
+    if not args.dry_run and not args.force:
+        print("error: clean requires -n or -f", file=sys.stderr)
+        sys.exit(1)
+
+    clean_repo(
+        repo,
+        dry_run=args.dry_run,
+        include_ignored=args.exclude,
+        include_dirs=args.dirs,
+    )
 
 
 def cmd_checkout(args):
@@ -999,21 +1060,26 @@ def main():
     # log
     p_log = subparsers.add_parser("log", help="show commit logs")
     p_log.add_argument("--oneline", action="store_true", help="show one line per commit")
+    p_log.add_argument("-n", "--count", type=int, default=None, help="limit number of commits")
+    p_log.add_argument("path", nargs="?", default=None, help="only show commits that changed this path")
     p_log.set_defaults(func=cmd_log)
 
     # show
     p_show = subparsers.add_parser("show", help="show commit metadata and diff")
     p_show.add_argument("sha", help="commit sha")
+    p_show.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_show.set_defaults(func=cmd_show)
 
     # status
     p_status = subparsers.add_parser("status", help="show the working tree status")
+    p_status.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_status.set_defaults(func=cmd_status)
 
     # diff
     p_diff = subparsers.add_parser("diff", help="show changes between commits, working tree, and index")
-    p_diff.add_argument("paths", nargs="*", help="specific files")
+    p_diff.add_argument("commits", nargs="*", help="commit references to diff (exactly 2 for commit-to-commit)")
     p_diff.add_argument("--staged", action="store_true", help="show staged changes")
+    p_diff.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_diff.set_defaults(func=cmd_diff)
 
     # branch
@@ -1021,6 +1087,7 @@ def main():
     p_branch.add_argument("name", nargs="?", help="branch name")
     p_branch.add_argument("-d", "--delete", action="store_true", help="delete a fully merged branch")
     p_branch.add_argument("-D", "--force-delete", action="store_true", help="force delete a branch")
+    p_branch.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_branch.set_defaults(func=cmd_branch)
 
     # checkout
@@ -1031,6 +1098,14 @@ def main():
     p_checkout.add_argument("target", nargs="?", help="branch name or commit sha")
     p_checkout.add_argument("paths", nargs="*", metavar="path", help="files to restore from index")
     p_checkout.set_defaults(func=cmd_checkout)
+
+    # clean
+    p_clean = subparsers.add_parser("clean", help="remove untracked files from the working tree")
+    p_clean.add_argument("-n", "--dry-run", action="store_true", help="dry run (show what would be removed)")
+    p_clean.add_argument("-f", "--force", action="store_true", help="actually remove files")
+    p_clean.add_argument("-d", "--dirs", action="store_true", help="also remove untracked directories")
+    p_clean.add_argument("-x", "--exclude", action="store_true", help="also remove ignored files")
+    p_clean.set_defaults(func=cmd_clean)
 
     # merge
     p_merge = subparsers.add_parser("merge", help="join two or more development histories")
