@@ -75,6 +75,8 @@ desktop.ini
 pygit_build*.pyz
 pygit*.pyz
 .omo/
+.pygit/
+
 # Temporary files
 *.tmp
 *.bak
