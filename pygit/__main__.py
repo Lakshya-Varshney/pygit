@@ -206,8 +206,11 @@ def cmd_log(args):
     from .repository import Repository
     from .objects import read_object, deserialize_commit
     from .log_filter import walk_commits, commits_that_touched_path
+    from .colors import should_color, colorize, YELLOW
 
     repo = Repository(".")
+    use_color = should_color(getattr(args, "color", None))
+
     try:
         head = repo.get_head()
         if head.startswith("ref: "):
@@ -222,13 +225,24 @@ def cmd_log(args):
     if args.path:
         commit_iter = commits_that_touched_path(repo, sha, args.path)
     else:
-        commit_iter = walk_commits(repo, sha, count=args.count)
+        commit_iter = walk_commits(repo, sha, count=None if args.author else args.count)
 
+    shown = 0
     for commit_sha, commit in commit_iter:
+        if args.author and args.author.lower() not in commit["author"].lower():
+            continue
         if args.oneline:
-            print(f"{commit_sha[:7]} {commit['message'].splitlines()[0]}")
+            short = commit_sha[:7]
+            msg = commit["message"].splitlines()[0]
+            if use_color:
+                print(f"{colorize(short, YELLOW)} {msg}")
+            else:
+                print(f"{short} {msg}")
         else:
-            print(f"commit {commit_sha}")
+            if use_color:
+                print(f"commit {colorize(commit_sha, YELLOW)}")
+            else:
+                print(f"commit {commit_sha}")
             if len(commit["parents"]) > 1:
                 print(f"Merge: {' '.join(p[:7] for p in commit['parents'])}")
             print(f"Author: {commit['author']}")
@@ -236,6 +250,9 @@ def cmd_log(args):
             dt = datetime.datetime.fromtimestamp(commit["committer_epoch"])
             print(f"Date:   {dt.strftime('%a %b %d %H:%M:%S %Y %z')}")
             print(f"\n    {commit['message']}\n")
+        shown += 1
+        if args.count is not None and shown >= args.count:
+            break
 
 
 def cmd_show(args):
@@ -395,6 +412,46 @@ def cmd_status(args):
         print("nothing to commit, working tree clean")
 
 
+def _compute_stat(diff_lines):
+    """Compute per-file insertions/deletions from unified diff lines.
+
+    Returns (file_stats, total_ins, total_del) where file_stats is
+    [(filename, ins, del), ...].
+    """
+    import re
+    file_stats = []
+    current_file = None
+    ins = del_ = 0
+    for line in diff_lines:
+        if line.startswith("diff --git"):
+            m = re.search(r"b/(.+)$", line)
+            if m:
+                if current_file:
+                    file_stats.append((current_file, ins, del_))
+                current_file = m.group(1)
+                ins = del_ = 0
+        elif line.startswith("+") and not line.startswith("+++"):
+            ins += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            del_ += 1
+    if current_file:
+        file_stats.append((current_file, ins, del_))
+    total_ins = sum(s[1] for s in file_stats)
+    total_del = sum(s[2] for s in file_stats)
+    return file_stats, total_ins, total_del
+
+
+def _print_stat(file_stats, total_ins, total_del):
+    """Print diff --stat summary."""
+    max_name = max((len(s[0]) for s in file_stats), default=0)
+    for name, ins, del_ in file_stats:
+        bar = "+" * ins + "-" * del_
+        print(f" {name:>{max_name}} | {len(bar):>3} {bar}")
+    print(f" {len(file_stats)} file{'s' if len(file_stats) != 1 else ''} changed, "
+          f"{total_ins} insertion{'s' if total_ins != 1 else ''}(+), "
+          f"{total_del} deletion{'s' if total_del != 1 else ''}(-)")
+
+
 def cmd_diff(args):
     """Show diff between working tree and index, or index and HEAD, or two commits."""
     import difflib
@@ -415,8 +472,12 @@ def cmd_diff(args):
             print(f"error: {e}", file=sys.stderr)
             sys.exit(1)
         diff_lines = diff_two_commits(repo, sha1, sha2)
-        for line in diff_lines:
-            sys.stdout.write(colorize_diff_line(line, use_color))
+        if getattr(args, "stat", False):
+            file_stats, total_ins, total_del = _compute_stat(diff_lines)
+            _print_stat(file_stats, total_ins, total_del)
+        else:
+            for line in diff_lines:
+                sys.stdout.write(colorize_diff_line(line, use_color))
         return
     index = Index(repo)
     index.load()
@@ -438,6 +499,7 @@ def cmd_diff(args):
     else:
         paths = args.commits if args.commits else [e["path"] for e in index.get_entries()]
 
+    all_diff = []
     for path in paths:
         ie = index.get_entry(path)
         if not ie:
@@ -448,7 +510,6 @@ def cmd_diff(args):
         working = full.read_bytes().decode("utf-8", errors="replace").splitlines(keepends=True)
 
         if args.staged:
-            # Diff index vs HEAD
             try:
                 head_sha = repo.get_head()
                 if head_sha.startswith("ref: "):
@@ -460,7 +521,6 @@ def cmd_diff(args):
                 staged = []
             diff = difflib.unified_diff(staged, working, fromfile=f"a/{path}", tofile=f"b/{path}")
         else:
-            # Diff working tree vs index
             try:
                 from .objects import read_object
                 _, idx_data = read_object(ie["sha"], repo.root)
@@ -469,7 +529,13 @@ def cmd_diff(args):
                 idx_lines = []
             diff = difflib.unified_diff(idx_lines, working, fromfile=f"a/{path}", tofile=f"b/{path}")
 
-        for line in diff:
+        all_diff.extend(diff)
+
+    if getattr(args, "stat", False):
+        file_stats, total_ins, total_del = _compute_stat(all_diff)
+        _print_stat(file_stats, total_ins, total_del)
+    else:
+        for line in all_diff:
             sys.stdout.write(colorize_diff_line(line, use_color))
 
 
@@ -875,16 +941,27 @@ def cmd_remote(args):
     from .repository import Repository
 
     repo = Repository(".")
-    if args.remote_action == "add":
+    action = args.remote_action
+    if action is None:
+        action = "list"
+    if action == "add":
         repo.add_remote(args.name, args.address)
         print(f"Remote '{args.name}' added")
-    elif args.remote_action == "list":
+    elif action == "list":
         config = repo.get_config()
+        verbose = getattr(args, "verbose", False)
+        found = False
         for section in config.sections():
             if section.startswith("remote "):
                 name = section.split('"')[1]
                 addr = config.get(section, "address")
-                print(f"{name}\t{addr}")
+                if verbose:
+                    print(f"{name}\t{addr}")
+                else:
+                    print(name)
+                found = True
+        if not found:
+            print("No remotes configured")
 
 
 def cmd_fetch(args):
@@ -1061,7 +1138,9 @@ def main():
     p_log = subparsers.add_parser("log", help="show commit logs")
     p_log.add_argument("--oneline", action="store_true", help="show one line per commit")
     p_log.add_argument("-n", "--count", type=int, default=None, help="limit number of commits")
+    p_log.add_argument("--author", default=None, help="filter by author (substring match)")
     p_log.add_argument("path", nargs="?", default=None, help="only show commits that changed this path")
+    p_log.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_log.set_defaults(func=cmd_log)
 
     # show
@@ -1079,6 +1158,7 @@ def main():
     p_diff = subparsers.add_parser("diff", help="show changes between commits, working tree, and index")
     p_diff.add_argument("commits", nargs="*", help="commit references to diff (exactly 2 for commit-to-commit)")
     p_diff.add_argument("--staged", action="store_true", help="show staged changes")
+    p_diff.add_argument("--stat", action="store_true", help="show summary instead of full diff")
     p_diff.add_argument("--color", choices=["always", "never", "auto"], default="auto", help="color output")
     p_diff.set_defaults(func=cmd_diff)
 
@@ -1148,10 +1228,12 @@ def main():
 
     # remote
     p_remote = subparsers.add_parser("remote", help="manage remote repositories")
+    p_remote.add_argument("-v", "--verbose", action="store_true", help="show remote URLs")
     remote_sub = p_remote.add_subparsers(dest="remote_action", help="remote actions")
     p_remote_add = remote_sub.add_parser("add", help="add a remote")
     p_remote_add.add_argument("name", help="remote name")
     p_remote_add.add_argument("address", help="host:port")
+    remote_sub.add_parser("list", help="list configured remotes")
     p_remote.set_defaults(func=cmd_remote)
 
     # fetch

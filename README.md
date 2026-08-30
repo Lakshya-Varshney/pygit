@@ -3,7 +3,7 @@
 A real, content-addressed version control system in pure Python with **zero dependencies**.
 
 ```
-pygit.pyz  ~ 267 KB  |  13 modules  |  3,968 lines  |  132 tests  |  27 commands  |  Python 3.13+
+pygit.pyz  ~ 267 KB  |  13 modules  |  4,027 lines  |  139 tests  |  27 commands  |  Python 3.13+
 ```
 
 ## What is this?
@@ -43,10 +43,10 @@ python -m pygit clone localhost:8798 ./my-repo-clone
 | `pygit init` | Create an empty repository |
 | `pygit add <path>...` | Add files to the staging area (recurses into directories, respects `.pygitignore`) |
 | `pygit commit -m "<msg>"` | Record changes to the repository; `--amend` to amend the last commit |
-| `pygit log [-n <count>] [<path>]` | Show commit history; `--oneline` for compact; `-n` limits count; `<path>` filters to commits that changed the file |
+| `pygit log [-n <count>] [<path>]` | Show commit history; `--oneline`, `-n` limit, `<path>` filter, `--author=<pattern>`, `--color` |
 | `pygit show <sha>` | Show commit metadata and diff (accepts short sha prefix, `--color`) |
 | `pygit status` | Show working tree status (`--color`) |
-| `pygit diff [<ref1> [<ref2>]]` | Diff working tree vs index, or two commits (`--staged`, `--color`); commit refs accept short shas or branch names |
+| `pygit diff [<ref1> [<ref2>]]` | Diff working tree vs index, or two commits (`--staged`, `--stat`, `--color`); commit refs accept short shas or branch names |
 | `pygit branch [<name>]` | List, create, or delete branches; `-d`/`-D` to delete; `--color` |
 | `pygit checkout <target>` | Switch branches or restore files; `-b`/`-B` to create/reset branch; `-- <path>` to restore files; short sha prefix for detached HEAD |
 | `pygit switch <branch>` | Switch to a branch; `-c`/`-C` to create/reset branch |
