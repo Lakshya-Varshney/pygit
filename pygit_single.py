@@ -1,6 +1,3 @@
-# pygit_single.py — Single-file build for the hackathon's Single File bonus (+5, Hard).
-# This is a mechanical concatenation of the pygit/ package into one file.
-# The modular pygit/ package remains the primary implementation that the test suite exercises.
 # This file is fully self-contained: `python3 pygit_single.py <command>` with no build step.
 
 import argparse
@@ -2602,21 +2599,21 @@ def cmd_status(args):
 
     if staged:
         print("Changes to be committed:")
-        print("  (use \"git rm --cached <file>...\" to unstage)")
+        print("  (use \"pygit rm --cached <file>...\" to unstage)")
         for s in staged:
             print(colorize_status_item(s, "staged", use_color))
         print()
 
     if modified:
         print("Changes not staged for commit:")
-        print("  (use \"git add <file>...\" to update what will be committed)")
+        print("  (use \"pygit add <file>...\" to update what will be committed)")
         for m in modified:
             print(colorize_status_item(m, "modified", use_color))
         print()
 
     if untracked:
         print("Untracked files:")
-        print("  (use \"git add <file>...\" to include in what will be committed)")
+        print("  (use \"pygit add <file>...\" to include in what will be committed)")
         for u in untracked:
             print(colorize_status_item(u, "untracked", use_color))
         print()
